@@ -90,8 +90,41 @@ router.post("/documents/:id/analyze", async (req, res): Promise<void> => {
       const file = await storageService.getObjectEntityFile(objectPath);
       const [fileContents] = await file.download();
       const buffer = Buffer.isBuffer(fileContents) ? fileContents : Buffer.from(fileContents);
+      req.log.info(
+        {
+          documentId: doc.id,
+          bytes: buffer.length,
+        },
+        "Downloaded file from R2",
+      );
       const { text: extractedText, pageCount } = await extractTextFromBuffer(buffer, doc.fileType, doc.name);
+      req.log.info(
+        {
+          documentId: doc.id,
+          characters: extractedText.length,
+          pageCount,
+        },
+        "Text extracted",
+      );
+
+      req.log.info(
+        {
+          documentId: doc.id,
+          characters: extractedText.length,
+        },
+        "Sending document to Gemini",
+      );
+
       const analysis = await analyzeBusinessDocument(extractedText, doc.name);
+      
+      req.log.info(
+        {
+          documentId: doc.id,
+          healthScore: analysis.businessHealthScore,
+          confidenceScore: analysis.confidenceScore,
+        },
+        "Gemini completed",
+      );
 
       await DocumentAnalysisModel.create({ id: await getNextId("document_analyses"), documentId: doc.id, ...analysis });
 
@@ -116,8 +149,53 @@ router.post("/documents/:id/analyze", async (req, res): Promise<void> => {
         id: await getNextId("notifications"), type: "analysis_complete",
         message: `Analysis complete for "${doc.name}" — Health Score: ${analysis.businessHealthScore}/100`, documentId: doc.id,
       });
-    } catch (_err) {
-      await DocumentModel.updateOne({ id: params.data.id }, { status: "failed" });
+
+    } catch (err) {
+      console.error("====================================");
+      console.error("DOCUMENT ANALYSIS FAILED");
+      console.error("====================================");
+      console.error(err);
+    
+      req.log.error(
+        {
+          err,
+          documentId: doc.id,
+          documentName: doc.name,
+          objectPath: doc.objectPath,
+          fileType: doc.fileType,
+        },
+        "Document analysis failed",
+      );
+    
+      try {
+        await DocumentModel.updateOne(
+          { id: params.data.id },
+          {
+            status: "failed",
+          },
+        );
+    
+        await NotificationModel.create({
+          id: await getNextId("notifications"),
+          type: "analysis_failed",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Unknown document analysis error",
+          documentId: doc.id,
+        });
+      } catch (dbErr) {
+        console.error("Failed updating document status");
+        console.error(dbErr);
+    
+        req.log.error(
+          {
+            err: dbErr,
+            documentId: doc.id,
+          },
+          "Failed updating failed document status",
+        );
+      }
     }
   });
 });
