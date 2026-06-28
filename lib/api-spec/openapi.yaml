@@ -1,0 +1,934 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Enterprise AI Business Operations Copilot API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: Storage
+    description: Object storage upload and serving endpoints.
+  - name: documents
+    description: Document upload, management, and AI analysis
+  - name: reports
+    description: AI-generated executive reports
+  - name: conversations
+    description: AI chat conversations grounded in uploaded documents
+  - name: dashboard
+    description: Dashboard KPI summaries and activity feeds
+  - name: search
+    description: Cross-entity search
+  - name: notifications
+    description: System notifications
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List all uploaded documents
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, processing, analyzed, failed]
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Register an uploaded document for analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentInput"
+      responses:
+        "201":
+          description: Document created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get a document with its analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /documents/{id}/analyze:
+    post:
+      operationId: analyzeDocument
+      tags: [documents]
+      summary: Trigger AI analysis of a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "202":
+          description: Analysis started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /reports:
+    get:
+      operationId: listReports
+      tags: [reports]
+      summary: List all generated reports
+      responses:
+        "200":
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+    post:
+      operationId: createReport
+      tags: [reports]
+      summary: Generate a new executive report from selected documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "202":
+          description: Report generation started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+
+  /reports/{id}:
+    get:
+      operationId: getReport
+      tags: [reports]
+      summary: Get a full report with all sections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Full report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteReport
+      tags: [reports]
+      summary: Delete a report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [conversations]
+      summary: List all AI chat conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+    post:
+      operationId: createConversation
+      tags: [conversations]
+      summary: Create a new AI conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationInput"
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}:
+    get:
+      operationId: getConversation
+      tags: [conversations]
+      summary: Get a conversation with its messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteConversation
+      tags: [conversations]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /conversations/{id}/messages:
+    post:
+      operationId: sendConversationMessage
+      tags: [conversations]
+      summary: Send a message and get a streaming AI response
+      description: Streams SSE events with AI response chunks. Response type is unknown (SSE stream).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "200":
+          description: SSE stream of AI response chunks
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get executive dashboard summary with KPIs and health scores
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/activity:
+    get:
+      operationId: getDashboardActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/kpi-trends:
+    get:
+      operationId: getKpiTrends
+      tags: [dashboard]
+      summary: Get KPI trend data over time for charts
+      responses:
+        "200":
+          description: KPI trend series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiTrendSeries"
+
+  /search:
+    get:
+      operationId: searchAll
+      tags: [search]
+      summary: Search across documents, reports, recommendations, and conversations
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: types
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Comma-separated entity types to search
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      parameters:
+        - name: unreadOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notifications list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /notifications/mark-all-read:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated:
+                    type: integer
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
+
+    Document:
+      type: object
+      required: [id, name, fileType, objectPath, status, uploadedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        fileType:
+          type: string
+        objectPath:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, analyzed, failed]
+        fileSize:
+          type: ["integer", "null"]
+        pageCount:
+          type: ["integer", "null"]
+        uploadedAt:
+          type: string
+          format: date-time
+        analyzedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    DocumentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Document"
+        - type: object
+          properties:
+            extractedText:
+              type: ["string", "null"]
+            analysis:
+              $ref: "#/components/schemas/DocumentAnalysis"
+
+    DocumentInput:
+      type: object
+      required: [name, fileType, objectPath]
+      properties:
+        name:
+          type: string
+        fileType:
+          type: string
+        objectPath:
+          type: string
+        fileSize:
+          type: ["integer", "null"]
+
+    DocumentAnalysis:
+      type: object
+      required: [id, documentId, createdAt]
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        executiveSummary:
+          type: ["string", "null"]
+        kpis:
+          type: ["string", "null"]
+          description: JSON array of KPI objects
+        keyFindings:
+          type: ["string", "null"]
+          description: JSON array of finding strings
+        positiveFindings:
+          type: ["string", "null"]
+        negativeFindings:
+          type: ["string", "null"]
+        risks:
+          type: ["string", "null"]
+        opportunities:
+          type: ["string", "null"]
+        recommendations:
+          type: ["string", "null"]
+          description: JSON array of recommendation objects
+        anomalies:
+          type: ["string", "null"]
+        departments:
+          type: ["string", "null"]
+        businessHealthScore:
+          type: ["number", "null"]
+        confidenceScore:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    Report:
+      type: object
+      required: [id, title, status, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum: [generating, ready, failed]
+        documentCount:
+          type: integer
+        confidenceScore:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ReportDetail:
+      allOf:
+        - $ref: "#/components/schemas/Report"
+        - type: object
+          properties:
+            documentIds:
+              type: array
+              items:
+                type: integer
+            executiveSummary:
+              type: ["string", "null"]
+            keyFindings:
+              type: ["string", "null"]
+            kpis:
+              type: ["string", "null"]
+            trends:
+              type: ["string", "null"]
+            positiveFindings:
+              type: ["string", "null"]
+            negativeFindings:
+              type: ["string", "null"]
+            riskAssessment:
+              type: ["string", "null"]
+            opportunities:
+              type: ["string", "null"]
+            strategicRecommendations:
+              type: ["string", "null"]
+            immediateActions:
+              type: ["string", "null"]
+            longTermActions:
+              type: ["string", "null"]
+            financialSummary:
+              type: ["string", "null"]
+            swotAnalysis:
+              type: ["string", "null"]
+            aiInsights:
+              type: ["string", "null"]
+
+    ReportInput:
+      type: object
+      required: [title, documentIds]
+      properties:
+        title:
+          type: string
+        documentIds:
+          type: array
+          items:
+            type: integer
+          minItems: 1
+
+    Conversation:
+      type: object
+      required: [id, title, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        documentIds:
+          type: array
+          items:
+            type: integer
+        messageCount:
+          type: integer
+        lastMessageAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Conversation"
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: "#/components/schemas/Message"
+
+    ConversationInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        documentIds:
+          type: array
+          items:
+            type: integer
+
+    Message:
+      type: object
+      required: [id, conversationId, role, content, createdAt]
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+
+    DashboardSummary:
+      type: object
+      required: [totalDocuments, analyzedDocuments, totalReports, totalConversations, recentAnalyses]
+      properties:
+        totalDocuments:
+          type: integer
+        analyzedDocuments:
+          type: integer
+        pendingDocuments:
+          type: integer
+        totalReports:
+          type: integer
+        totalConversations:
+          type: integer
+        recentAnalyses:
+          type: integer
+        averageHealthScore:
+          type: ["number", "null"]
+        averageConfidenceScore:
+          type: ["number", "null"]
+        topRisks:
+          type: array
+          items:
+            type: string
+        topOpportunities:
+          type: array
+          items:
+            type: string
+        unreadNotifications:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, description, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [document_uploaded, document_analyzed, report_generated, conversation_started, notification]
+        description:
+          type: string
+        documentId:
+          type: ["integer", "null"]
+        reportId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    KpiTrendSeries:
+      type: object
+      required: [name, data]
+      properties:
+        name:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiDataPoint"
+
+    KpiDataPoint:
+      type: object
+      required: [date, value]
+      properties:
+        date:
+          type: string
+        value:
+          type: number
+        label:
+          type: ["string", "null"]
+
+    SearchResults:
+      type: object
+      required: [query, results, total]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        total:
+          type: integer
+
+    SearchResult:
+      type: object
+      required: [type, id, title, excerpt]
+      properties:
+        type:
+          type: string
+          enum: [document, report, conversation, recommendation]
+        id:
+          type: integer
+        title:
+          type: string
+        excerpt:
+          type: string
+        relevance:
+          type: ["number", "null"]
+        createdAt:
+          type: ["string", "null"]
+          format: date-time
+
+    Notification:
+      type: object
+      required: [id, type, message, read, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [risk_detected, kpi_alert, analysis_complete, report_ready, anomaly_detected]
+        message:
+          type: string
+        read:
+          type: boolean
+        documentId:
+          type: ["integer", "null"]
+        reportId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
