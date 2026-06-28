@@ -649,13 +649,21 @@ export class ObjectStorageService {
     const objectEntityPath = `${entityDir}uploads/${entityId}`;
     const { bucketName, objectName } = parseObjectPath(objectEntityPath);
 
-    console.log("PRIVATE_OBJECT_DIR =", this.getPrivateObjectDir());
-    console.log("bucketName =", bucketName);
-    console.log("objectName =", objectName);
+    const objectEntityPath = `${entityDir}uploads/${entityId}`;
+    const { bucketName, objectName } = parseObjectPath(objectEntityPath);
+    
+    console.log({
+      privateObjectDir: this.getPrivateObjectDir(),
+      objectEntityPath,
+      bucketName,
+      objectName,
+    });
     
     const file = this.provider.getFile(bucketName, objectName);
     
     const [exists] = await file.exists();
+    
+    console.log({ exists });
     
     console.log("exists =", exists);
     
