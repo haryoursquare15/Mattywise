@@ -23,9 +23,14 @@ export function DocumentDetail() {
     return <div className="text-center py-12 text-muted-foreground">Document not found.</div>;
   }
 
-  const parseJSON = (str?: string | null) => {
+  const parseJSON = (str?: string | null): any[] => {
     if (!str) return [];
-    try { return JSON.parse(str); } catch { return []; }
+    try {
+      const parsed = JSON.parse(str);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   };
 
   const kpis = parseJSON(doc.analysis?.kpis);
