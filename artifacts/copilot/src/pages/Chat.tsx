@@ -10,6 +10,10 @@ import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
+const API =
+  import.meta.env.VITE_API_URL ||
+  "https://workspaceapi-server-production-cef7.up.railway.app";
+
 export function Chat() {
   const { data: conversations, isLoading: loadingConvos } = useListConversations();
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -163,53 +167,119 @@ function ChatThread({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+  
     if (!input.trim() || isStreaming) return;
-
-    const userMessage = input;
-    setInput("");
+  
+    const userMessage = input.trim();
+  
     setIsStreaming(true);
     setStreamingText("");
-
-    queryClient.setQueryData(getGetConversationQueryKey(conversationId), (old: any) => {
-      if (!old) return old;
-      return {
-        ...old,
-        messages: [
-          ...(old.messages || []),
-          { id: Date.now(), role: "user", content: userMessage, createdAt: new Date().toISOString() },
-        ],
-      };
-    });
-
+  
+    // Optimistically add the user's message
+    queryClient.setQueryData(
+      getGetConversationQueryKey(conversationId),
+      (old: any) => {
+        if (!old) return old;
+  
+        return {
+          ...old,
+          messages: [
+            ...(old.messages ?? []),
+            {
+              id: Date.now(),
+              role: "user",
+              content: userMessage,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        };
+      },
+    );
+  
     try {
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userMessage }),
-      });
-
-      const reader = response.body!.getReader();
+      console.log(
+        "Sending:",
+        `${API}/api/conversations/${conversationId}/messages`,
+      );
+      console.log("Message:", userMessage);
+  
+      const response = await fetch(
+        `${API}/api/conversations/${conversationId}/messages`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content: userMessage,
+          }),
+        },
+      );
+  
+      console.log("Status:", response.status);
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          errorText || `Server returned ${response.status}`,
+        );
+      }
+  
+      if (!response.body) {
+        throw new Error("Server did not return a stream.");
+      }
+  
+      // Clear textbox only after request succeeds
+      setInput("");
+  
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
+  
       let buffer = "";
-
+  
       while (true) {
         const { done, value } = await reader.read();
+  
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+  
+        buffer += decoder.decode(value, {
+          stream: true,
+        });
+  
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
+  
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const event = JSON.parse(line.slice(6));
-          if (event.done) break;
-          if (event.content) setStreamingText((prev) => prev + event.content);
+  
+          try {
+            const event = JSON.parse(line.substring(6));
+  
+            if (event.done) continue;
+  
+            if (event.content) {
+              setStreamingText((prev) => prev + event.content);
+            }
+          } catch (err) {
+            console.error("Invalid SSE event:", err);
+          }
         }
       }
-
-      queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(conversationId) });
-    } catch (error) {
+  
+      console.log("Streaming complete");
+  
+      await queryClient.invalidateQueries({
+        queryKey: getGetConversationQueryKey(conversationId),
+      });
+    } catch (error: any) {
       console.error("Streaming error:", error);
+  
+      toast({
+        title: "Message failed",
+        description: error.message ?? "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setIsStreaming(false);
       setStreamingText("");
