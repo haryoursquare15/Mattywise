@@ -37,11 +37,14 @@ async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
 }
 
 function cleanJson(text: string): string {
-  let s = text.trim();
-  if (s.startsWith("```")) {
-    s = s.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-  }
-  return s.trim();
+  const s = text.trim();
+  // Strip any markdown code fences anywhere in the string
+  const stripped = s.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+  // Find the first { and last } to extract the JSON object
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start === -1 || end === -1) return stripped;
+  return stripped.slice(start, end + 1);
 }
 
 export async function analyzeBusinessDocument(
@@ -100,7 +103,7 @@ Constraints:
     const response = await ai.models.generateContent({
       model: MODEL,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: 8192 },
+      config: { maxOutputTokens: 16384 },
     });
     return response.text ?? "{}";
   });
@@ -146,7 +149,7 @@ export async function generateExecutiveReport(
     .map((d) => `## ${d.name}\nSummary: ${d.summary}\nKPIs: ${d.kpis}\nFindings: ${d.findings}`)
     .join("\n\n");
 
-  const prompt = `You are MattyWise AI — a McKinsey senior partner with deep expertise in corporate strategy, financial analysis, and operational transformation. You are preparing a board-ready executive report.
+  const prompt = `You are MattyWise AI, a McKinsey senior partner with deep expertise in corporate strategy, financial analysis, and operational transformation. You are preparing a board-ready executive report.
 
 Report Title: "${reportTitle}"
 Number of source documents: ${documentAnalyses.length}
@@ -189,7 +192,7 @@ Return ONLY the JSON object.`;
     const response = await ai.models.generateContent({
       model: MODEL,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: 8192 },
+      config: { maxOutputTokens: 32768 },
     });
     return response.text ?? "{}";
   });
