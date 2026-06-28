@@ -335,28 +335,35 @@ class R2Provider implements StorageProvider {
   }
 
   normalizeUploadURL(uploadURL: string, privateObjectDir: string): string {
-    const r2Host = `${this.accountId}.r2.cloudflarestorage.com`;
-    if (!uploadURL.includes(r2Host)) {
-      return uploadURL;
-    }
     const url = new URL(uploadURL);
-    const rawPathname = url.pathname;
-    const bucketPrefix = `/${this.r2Bucket}/`;
-    if (!rawPathname.startsWith(bucketPrefix)) {
-      return rawPathname;
+  
+    let objectName = url.pathname;
+  
+    // Remove leading slash
+    if (objectName.startsWith("/")) {
+      objectName = objectName.slice(1);
     }
-    const objectName = rawPathname.slice(bucketPrefix.length);
-    const { objectName: privateDirObjectName } = parseObjectPath(privateObjectDir);
+  
+    // Remove bucket name if it exists
+    if (objectName.startsWith(`${this.r2Bucket}/`)) {
+      objectName = objectName.slice(this.r2Bucket.length + 1);
+    }
+  
+    const { objectName: privateDirObjectName } =
+      parseObjectPath(privateObjectDir);
+  
     const prefix = privateDirObjectName.endsWith("/")
       ? privateDirObjectName
       : `${privateDirObjectName}/`;
+  
     if (!objectName.startsWith(prefix)) {
       return `/${objectName}`;
     }
+  
     const entityId = objectName.slice(prefix.length);
+  
     return `/objects/${entityId}`;
   }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Local filesystem provider (self-hosting without cloud storage)
