@@ -1,30 +1,45 @@
-import app from "./app";
-import { logger } from "./lib/logger";
+import { Router, type IRouter } from "express";
 
-const rawPort = process.env["PORT"];
+import { requireMongo } from "../middlewares/requireMongo";
+import { requireAuth } from "../middlewares/requireAuth";
 
-if (!rawPort) {
-  throw new Error("PORT environment variable is required but was not provided.");
-}
+import healthRouter from "./health";
+import authRouter from "./auth";
+import storageRouter from "./storage";
+import documentsRouter from "./documents";
+import reportsRouter from "./reports";
+import conversationsRouter from "./conversations";
+import dashboardRouter from "./dashboard";
+import searchRouter from "./search";
+import notificationsRouter from "./notifications";
 
-const port = Number(rawPort);
+const router: IRouter = Router();
 
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+/**
+ * -------------------------------------------------------
+ * Public Routes
+ * -------------------------------------------------------
+ * These routes DO NOT require authentication.
+ */
 
-// Startup env-var presence check — values are never logged, only which keys exist
-const criticalVars = ["MONGO_URL", "DB_NAME", "SESSION_SECRET", "GEMINI_API_KEY", "STORAGE_PROVIDER"];
-const envReport: Record<string, string> = {};
-for (const key of criticalVars) {
-  envReport[key] = process.env[key] ? "SET" : "MISSING";
-}
-logger.info({ env: envReport }, "Startup env-var check");
+router.use(authRouter);
+router.use(healthRouter);
+router.use(storageRouter);
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
-  logger.info({ port }, "Server listening");
-});
+/**
+ * -------------------------------------------------------
+ * Protected Routes
+ * -------------------------------------------------------
+ */
+
+router.use(requireMongo);
+router.use(requireAuth);
+
+router.use(documentsRouter);
+router.use(reportsRouter);
+router.use(conversationsRouter);
+router.use(dashboardRouter);
+router.use(searchRouter);
+router.use(notificationsRouter);
+
+export default router;
