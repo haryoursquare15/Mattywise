@@ -35,35 +35,108 @@ export function Documents() {
     if (e.target.files?.[0]) await handleUpload(e.target.files[0]);
   };
 
+  const API =
+    import.meta.env.VITE_API_URL ||
+    "https://workspaceapi-server-production-cef7.up.railway.app";
+  
   const handleUpload = async (file: File) => {
     setIsUploading(true);
+  
     try {
-      const res = await fetch("/api/storage/uploads/request-url", {
+      console.log("Uploading:", file.name);
+  
+      // Request signed upload URL
+      const res = await fetch(`${API}/api/storage/uploads/request-url`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+        }),
       });
-      if (!res.ok) throw new Error("Failed to request upload URL");
-      const { uploadURL, objectPath } = await res.json();
-
+  
+      const responseText = await res.text();
+  
+      console.log("Request Upload URL Response:");
+      console.log(responseText);
+  
+      if (!res.ok) {
+        throw new Error(responseText || "Failed to request upload URL");
+      }
+  
+      const { uploadURL, objectPath } = JSON.parse(responseText);
+  
+      console.log("Signed Upload URL:");
+      console.log(uploadURL);
+  
+      console.log("Object Path:");
+      console.log(objectPath);
+  
+      // Upload directly to R2
       const putRes = await fetch(uploadURL, {
         method: "PUT",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
         body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
       });
-      if (!putRes.ok) throw new Error("Failed to upload file to storage");
-
+  
+      const putText = await putRes.text();
+  
+      console.log("R2 Upload Response:");
+      console.log(putText);
+  
+      if (!putRes.ok) {
+        throw new Error(
+          `R2 Upload Failed (${putRes.status}): ${putText}`,
+        );
+      }
+  
+      console.log("Creating document record...");
+  
       const doc = await createDoc.mutateAsync({
-        data: { name: file.name, fileType: file.type || "application/octet-stream", objectPath, fileSize: file.size },
+        data: {
+          name: file.name,
+          fileType: file.type || "application/octet-stream",
+          objectPath,
+          fileSize: file.size,
+        },
       });
-      queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
-
-      toast({ title: "Upload successful", description: "Triggering AI analysis..." });
-      await analyzeDoc.mutateAsync({ id: doc.id });
-      queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
+  
+      console.log("Document created:", doc);
+  
+      queryClient.invalidateQueries({
+        queryKey: getListDocumentsQueryKey(),
+      });
+  
+      toast({
+        title: "Upload successful",
+        description: "Analyzing document...",
+      });
+  
+      await analyzeDoc.mutateAsync({
+        id: doc.id,
+      });
+  
+      queryClient.invalidateQueries({
+        queryKey: getListDocumentsQueryKey(),
+      });
+  
+      toast({
+        title: "Analysis started",
+      });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      console.error(err);
+  
+      toast({
+        title: "Upload failed",
+        description: err.message ?? "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setIsUploading(false);
     }
