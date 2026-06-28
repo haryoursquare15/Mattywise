@@ -646,7 +646,7 @@ export class ObjectStorageService {
     let entityDir = this.getPrivateObjectDir();
     if (!entityDir.endsWith("/")) entityDir = `${entityDir}/`;
 
-    const objectEntityPath = `${entityDir}uploads/${entityId}`;
+    const objectEntityPath = `${entityDir}${entityId}`;
     const { bucketName, objectName } = parseObjectPath(objectEntityPath);
     
     console.log({
