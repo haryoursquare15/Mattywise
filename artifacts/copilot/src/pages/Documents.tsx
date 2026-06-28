@@ -71,6 +71,9 @@ export function Documents() {
   
       const { uploadURL, objectPath } = JSON.parse(responseText);
   
+      console.log("UPLOAD URL:", uploadURL);
+      console.log("OBJECT PATH FROM SERVER:", objectPath);
+
       console.log("Signed Upload URL:");
       console.log(uploadURL);
   
