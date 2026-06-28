@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 
 interface User {
   id: string;
@@ -15,56 +21,88 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Backend URL from Vercel Environment Variables
+// Railway Backend URL
 const API =
-  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_URL ??
   "https://workspaceapi-server-production-cef7.up.railway.app";
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Check current login session
   useEffect(() => {
-    fetch(`${API}/api/auth/me`, {
-      credentials: "include",
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.user) setUser(data.user);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+    async function loadUser() {
+      try {
+        const res = await fetch(`${API}/api/auth/me`, {
+          credentials: "include",
+        });
 
-  const login = useCallback(async (username: string, password: string) => {
-    const res = await fetch(`${API}/api/auth/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username,
-        password,
-      }),
-    });
+        if (!res.ok) {
+          setUser(null);
+          return;
+        }
 
-    const data = await res.json().catch(() => ({}));
+        const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || "Login failed");
+        if (data?.user) {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Failed to load current user:", err);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    setUser(data.user);
+    loadUser();
   }, []);
 
-  const logout = useCallback(async () => {
-    await fetch(`${API}/api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
+  // Login
+  const login = useCallback(
+    async (username: string, password: string) => {
+      const res = await fetch(`${API}/api/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-    setUser(null);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Login failed");
+      }
+
+      setUser(data.user);
+    },
+    []
+  );
+
+  // Logout
+  const logout = useCallback(async () => {
+    try {
+      await fetch(`${API}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      setUser(null);
+    }
   }, []);
 
   return (
