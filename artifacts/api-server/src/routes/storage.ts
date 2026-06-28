@@ -70,7 +70,7 @@ router.post(
 router.put(
   "/storage/local-upload/:token",
   async (req: Request, res: Response) => {
-    const token = req.params.token;
+    const token = String(req.params.token);
     const entry = LOCAL_UPLOAD_TOKENS.get(token);
 
     if (!entry) {
