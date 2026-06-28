@@ -86,12 +86,12 @@ router.post("/documents/:id/analyze", async (req, res): Promise<void> => {
 
   setImmediate(async () => {
     try {
-      const objectPath = storageService.normalizeObjectEntityPath(doc.objectPath);
+      const objectPath = doc.objectPath;
 
       console.log({
         objectPath,
       });
-
+      
       const file = await storageService.getObjectEntityFile(objectPath);
       const [fileContents] = await file.download();
       const buffer = Buffer.isBuffer(fileContents) ? fileContents : Buffer.from(fileContents);
