@@ -158,6 +158,7 @@ function ChatThread({
   const [streamingText, setStreamingText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (scrollRef.current) {
