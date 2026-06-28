@@ -89,7 +89,6 @@ router.post("/documents/:id/analyze", async (req, res): Promise<void> => {
       const objectPath = storageService.normalizeObjectEntityPath(doc.objectPath);
 
       console.log({
-        uploadURL,
         objectPath,
       });
 
