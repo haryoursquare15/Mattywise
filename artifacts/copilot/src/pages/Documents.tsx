@@ -11,6 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 
+const API =
+    import.meta.env.VITE_API_URL ||
+    "https://workspaceapi-server-production-cef7.up.railway.app";
+  
 export function Documents() {
   const [search, setSearch] = useState("");
   const { data: documents, isLoading } = useListDocuments(search ? { search } : undefined);
@@ -35,9 +39,6 @@ export function Documents() {
     if (e.target.files?.[0]) await handleUpload(e.target.files[0]);
   };
 
-  const API =
-    import.meta.env.VITE_API_URL ||
-    "https://workspaceapi-server-production-cef7.up.railway.app";
   
   const handleUpload = async (file: File) => {
     setIsUploading(true);
