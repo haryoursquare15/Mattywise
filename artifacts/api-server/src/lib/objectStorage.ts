@@ -364,6 +364,7 @@ class R2Provider implements StorageProvider {
   
     return `/objects/${entityId}`;
   }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Local filesystem provider (self-hosting without cloud storage)
