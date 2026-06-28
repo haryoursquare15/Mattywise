@@ -48,9 +48,16 @@ router.post(
           metadata: { name, size, contentType },
         }),
       );
-    } catch (error) {
-      req.log.error({ err: error }, "Error generating upload URL");
-      res.status(500).json({ error: "Failed to generate upload URL" });
+    } catch (error: any) {
+      req.log.error(error);
+    
+      res.status(500).json({
+        error: error?.message ?? "Failed to generate upload URL",
+        stack:
+          process.env.NODE_ENV !== "production"
+            ? error?.stack
+            : undefined,
+      });
     }
   },
 );
