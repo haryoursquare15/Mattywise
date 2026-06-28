@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requireMongo } from "../middlewares/requireMongo";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import storageRouter from "./storage";
@@ -11,9 +12,13 @@ import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
+// These routes work without MongoDB
 router.use(authRouter);
 router.use(healthRouter);
 router.use(storageRouter);
+
+// All routes below require MongoDB — return 503 if not connected
+router.use(requireMongo);
 router.use(documentsRouter);
 router.use(reportsRouter);
 router.use(conversationsRouter);
