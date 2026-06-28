@@ -16,6 +16,8 @@ import { connectMongo } from "./lib/mongodb";
 
 const app: Express = express();
 
+app.set("trust proxy", 1);
+
 /**
  * Generate Request ID
  */
