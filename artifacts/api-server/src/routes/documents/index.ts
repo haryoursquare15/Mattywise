@@ -86,7 +86,13 @@ router.post("/documents/:id/analyze", async (req, res): Promise<void> => {
 
   setImmediate(async () => {
     try {
-      const objectPath = doc.objectPath.startsWith("/objects/") ? doc.objectPath : `/objects/${doc.objectPath}`;
+      const objectPath = storageService.normalizeObjectEntityPath(doc.objectPath);
+
+      console.log({
+        uploadURL,
+        objectPath,
+      });
+
       const file = await storageService.getObjectEntityFile(objectPath);
       const [fileContents] = await file.download();
       const buffer = Buffer.isBuffer(fileContents) ? fileContents : Buffer.from(fileContents);
