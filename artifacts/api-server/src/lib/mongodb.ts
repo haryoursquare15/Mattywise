@@ -11,19 +11,21 @@ export function isMongoAvailable(): boolean {
 export async function connectMongo(): Promise<void> {
   if (connected) return;
 
-  const uri = process.env["MONGODB_URI"];
-  if (!uri) {
+  const url = process.env["MONGO_URL"];
+  const dbName = process.env["DB_NAME"] ?? "mattywise";
+
+  if (!url) {
     logger.warn(
-      "MONGODB_URI is not set — document, report, conversation and search routes will return 503. " +
-      "Add MONGODB_URI in Railway → your service → Variables tab, then redeploy.",
+      "MONGO_URL is not set — document, report, conversation and search routes will return 503. " +
+      "Set MONGO_URL (and optionally DB_NAME) as environment variables.",
     );
     return;
   }
 
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  await mongoose.connect(url, { dbName, serverSelectionTimeoutMS: 10000 });
   connected = true;
   available = true;
-  logger.info("MongoDB connected");
+  logger.info({ dbName }, "MongoDB connected");
 }
 
 export { mongoose };

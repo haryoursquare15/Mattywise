@@ -5,7 +5,7 @@ export function requireMongo(_req: Request, res: Response, next: NextFunction) {
   if (!isMongoAvailable()) {
     res.status(503).json({
       error: "Database not configured",
-      detail: "Add MONGODB_URI in Railway → your service → Variables tab, then redeploy.",
+      detail: "Set the MONGO_URL environment variable (and optionally DB_NAME), then restart the server.",
     });
     return;
   }

@@ -65,7 +65,7 @@ app.use(
 );
 
 connectMongo().catch((err) => {
-  logger.error({ err }, "Failed to connect to MongoDB — check MONGODB_URI secret");
+  logger.error({ err }, "MongoDB connection failed — check MONGO_URL environment variable");
 });
 
 app.use("/api", requireAuth);
